@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk Co-Pilot Enterprise</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#080c14;--surface:#0d1420;--card:#111827;--border:#1e293b;--cyan:#00d4ff;--violet:#7c3aed;--amber:#f59e0b;--red:#ef4444;--green:#10b981;--text:#e2e8f0;--muted:#64748b;--white:#f8fafc}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+.mono{font-family:'SF Mono',Menlo,Consolas,monospace}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* SIDEBAR */
+#sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh}
+#sidebar .logo{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10}
+#sidebar .logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#fff;flex-shrink:0}
+#sidebar .logo-text{font-weight:700;font-size:14px}
+#sidebar .logo-sub{font-size:10px;color:var(--muted)}
+#sidebar nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-item{padding:10px 16px;display:flex;align-items:center;gap:12;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:rgba(0,212,255,.04)}
+.nav-item.active{background:rgba(0,212,255,.08);border-left-color:var(--cyan)}
+.nav-item .icon{font-size:18px;width:28px;text-align:center}
+.nav-item .label{font-size:13px}.nav-item.active .label{font-weight:600;color:var(--white)}
+.nav-item .sub{font-size:10px;color:var(--muted)}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{height:48px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;display:inline-block;margin-right:6px}
+#content{flex:1;padding:24px;overflow-y:auto}
+.page{display:none;animation:fadeIn .25s ease}.page.active{display:block}
+
+/* COMPONENTS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;font-family:'SF Mono',Menlo,monospace}
+.chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.chip-ok{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.chip-warn{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.chip-crit{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.chip-cyan{background:rgba(0,212,255,.12);color:var(--cyan);border:1px solid rgba(0,212,255,.3)}
+.chip-violet{background:rgba(124,58,237,.12);color:var(--violet);border:1px solid rgba(124,58,237,.3)}
+.grid{display:grid;gap:16px}.grid-2{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr 1fr}.grid-4{grid-template-columns:repeat(4,1fr)}
+.kpi{text-align:left}.kpi .val{font-size:26px;font-weight:700;font-family:'SF Mono',Menlo,monospace}.kpi .unit{font-size:13px;color:var(--muted);margin-left:4px}
+.kpi .delta{font-size:12px;margin-top:4px}
+h2{font-size:22px;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:16px}
+.header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+input[type=text],textarea,select{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;font-family:inherit}
+textarea{resize:vertical;min-height:100px}
+.btn{padding:10px 20px;border-radius:8px;border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer;width:100%;margin-top:12px}
+.btn-primary{background:linear-gradient(135deg,var(--violet),var(--cyan))}
+.btn-primary:disabled{background:var(--border);cursor:wait}
+.btn-sm{padding:6px 16px;width:auto;margin:0;font-size:12px;border-radius:6px;background:var(--violet)}
+pre.result{white-space:pre-wrap;font-size:12px;line-height:1.7;font-family:inherit;color:var(--text);margin-top:8px}
+
+/* HEATMAP */
+.heatmap{display:grid;grid-template-columns:80px repeat(5,1fr);gap:2}
+.heatmap-cell{border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .15s;font-family:'SF Mono',Menlo,monospace;font-size:13px;font-weight:600}
+.heatmap-label{font-size:10px;color:var(--muted);display:flex;align-items:center;padding:4px;font-family:'SF Mono',Menlo,monospace}
+
+/* PROGRESS BAR */
+.prog-row{display:flex;align-items:center;gap:12px;padding:8px;background:var(--bg);border-radius:8px;margin-bottom:6px}
+.prog-label{font-size:11px;color:var(--muted);min-width:150px;font-family:'SF Mono',Menlo,monospace}
+.prog-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s}
+.prog-val{font-size:13px;font-weight:600;min-width:40px;text-align:right;font-family:'SF Mono',Menlo,monospace}
+
+/* SCENARIO BUTTONS */
+.scenario-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:13px;transition:all .15s}
+.scenario-btn.active{font-weight:600}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;margin-top:8px}
+.data-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:left;padding:8px 4px;border-bottom:1px solid var(--border);font-family:'SF Mono',Menlo,monospace}
+.data-table td{padding:8px 4px;border-bottom:1px solid var(--border);font-size:12px}
+
+/* RADIO GROUP */
+.radio-group label{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--bg);margin-bottom:6px;font-size:13px;transition:all .15s}
+.radio-group label.selected{background:rgba(124,58,237,.1);border-color:var(--violet)}
+.radio-group input{accent-color:var(--violet)}
+
+/* KPI SELECT CARDS */
+.kpi-select{border-radius:10px;padding:14px;cursor:pointer;border:1px solid var(--border);background:var(--card);transition:all .15s}
+.kpi-select.selected{border-color:var(--cyan)}
+
+/* TOGGLE */
+.toggle{width:40px;height:22px;border-radius:11px;cursor:pointer;position:relative;transition:all .2s}
+.toggle .knob{width:18px;height:18px;border-radius:9px;background:#fff;position:absolute;top:2px;transition:all .2s}
+
+/* CHAT */
+#chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 0}
+.msg{max-width:75%;padding:12px 16px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.msg-user{background:var(--violet);align-self:flex-end;border-bottom-right-radius:4px}
+.msg-ai{background:var(--card);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:4px}
+.typing{padding:12px 20px;border-radius:12px;background:var(--card);border:1px solid var(--border);align-self:flex-start}
+.typing span{animation:pulse 1.5s infinite;font-size:14px}
+
+/* QUICK Q */
+.quick-q{padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;text-align:left;transition:all .15s}
+.quick-q:hover{border-color:var(--violet)}
+
+/* SIMPLE BAR CHART */
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:200px;padding:10px 0;border-bottom:1px solid var(--border)}
+.bar-col{display:flex;flex-direction:column;align-items:center;flex:1;gap:4px}
+.bar{border-radius:4px 4px 0 0;width:100%;min-width:20px;transition:height .5s}
+.bar-label{font-size:9px;color:var(--muted);text-align:center;word-break:break-all}
+.bar-val{font-size:10px;font-family:'SF Mono',Menlo,monospace}
+
+/* HORIZONTAL BAR */
+.hbar{margin-bottom:8px}
+.hbar-label{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between}
+.hbar-track{height:20px;background:var(--border);border-radius:4px;overflow:hidden;position:relative}
+.hbar-fill{height:100%;border-radius:4px;transition:width .5s}
+.hbar-text{position:absolute;right:6px;top:2px;font-size:10px;font-family:'SF Mono',Menlo,monospace;color:var(--white)}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo"><div class="logo-icon">R</div><div><div class="logo-text">Risk Co-Pilot</div><div class="logo-sub">Enterprise v1.0</div></div></div>
+  <nav id="nav"></nav>
+  <div style="padding:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">Phase 1 — MVP</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:12px"><span class="live-dot"></span><span class="mono" style="font-size:12px;color:var(--muted)">LIVE FEED</span></div>
+    <div style="display:flex;align-items:center;gap:16px"><span class="chip chip-crit" id="breach-chip"></span><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">CRO</div></div>
+  </div>
+  <div id="content">
+    <!-- PAGE: CoR -->
+    <div class="page" id="page-cor">
+      <div class="header-row"><div><h2>Матрица корреляций</h2><div class="subtitle">Корреляции между классами активов (Пирсон, 60 дней)</div></div><span class="chip chip-cyan">Real-time</span></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="label">Тепловая карта 5×5</div><div class="heatmap" id="heatmap"></div></div>
+        <div class="card"><div class="label">Парные корреляции</div><div id="pairs"></div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: VaR -->
+    <div class="page" id="page-var">
+      <h2>VaR Dashboard</h2><div class="subtitle">Расчёт и бэктестинг Value-at-Risk</div>
+      <div class="grid grid-4" id="var-kpis"></div>
+      <div class="card"><div class="label">Декомпозиция VaR по деску</div><div id="var-desks"></div></div>
+      <div class="card"><div class="label">Stressed VaR — исторические кризисы</div><div class="bar-chart" id="stress-var-bars"></div></div>
+    </div>
+
+    <!-- PAGE: Stress -->
+    <div class="page" id="page-stress">
+      <h2>Стресс-тестирование</h2><div class="subtitle">Сценарный анализ кризисных условий</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="stress-btns"></div>
+      <div class="grid grid-4" id="stress-kpis"></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="label">Сравнение потерь по сценариям</div><div id="stress-bars"></div></div>
+        <div class="card"><div class="label">Влияние на CET1 Ratio</div><table class="data-table" id="stress-table"><thead><tr><th>Сценарий</th><th>CET1</th><th>Min 8.5%</th><th>Статус</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PAGE: Letters -->
+    <div class="page" id="page-letter">
+      <div class="header-row"><div><h2>Генерация писем в АРРФР</h2><div class="subtitle">AI-генерация официальной корреспонденции</div></div><span class="chip chip-violet">AI Claude Sonnet</span></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="label">Шаблон письма</div><div class="radio-group" id="letter-tpls"></div><div class="label" style="margin-top:16px">Дополнительный контекст</div><textarea id="letter-ctx" placeholder="Укажите данные, даты, причины..."></textarea><button class="btn btn-primary" onclick="generateLetter()">⚡ Сгенерировать письмо</button></div>
+        <div class="card" style="max-height:600px;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">Результат</div><button class="btn-sm" onclick="copyResult('letter-result')" style="display:none" id="letter-copy">📋 Копировать</button></div><div id="letter-result" style="color:var(--muted);text-align:center;padding:60px 0">Выберите шаблон и нажмите «Сгенерировать»</div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: Memo -->
+    <div class="page" id="page-memo">
+      <div class="header-row"><div><h2>Записки на Правление</h2><div class="subtitle">AI-генерация служебных меморандумов</div></div><span class="chip chip-violet">AI Claude Sonnet</span></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="label">Тип записки</div><div class="radio-group" id="memo-types"></div><div class="label" style="margin-top:16px">Данные и факты</div><textarea id="memo-ctx" placeholder="Введите ключевые данные, цифры, факты..."></textarea><button class="btn btn-primary" onclick="generateMemo()">⚡ Сгенерировать записку</button></div>
+        <div class="card" style="max-height:600px;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">Результат</div><button class="btn-sm" onclick="copyResult('memo-result')" style="display:none" id="memo-copy">📋 Копировать</button></div><div id="memo-result" style="color:var(--muted);text-align:center;padding:60px 0">Выберите тип и нажмите «Сгенерировать»</div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: KPI -->
+    <div class="page" id="page-kpi">
+      <h2>AI-анализ отклонений KPI</h2><div class="subtitle">Выберите показатели для анализа</div>
+      <div class="grid grid-4" id="kpi-cards"></div>
+      <div class="grid grid-2">
+        <div class="card"><div class="label">План vs Факт</div><div class="bar-chart" id="kpi-bars" style="height:220px"></div><div style="display:flex;gap:16px;margin-top:8px;justify-content:center"><span style="font-size:11px;color:var(--muted)"><span style="display:inline-block;width:10px;height:10px;background:var(--cyan);border-radius:2px;margin-right:4px;opacity:.5"></span>План</span><span style="font-size:11px;color:var(--muted)"><span style="display:inline-block;width:10px;height:10px;background:var(--violet);border-radius:2px;margin-right:4px"></span>Факт</span></div></div>
+        <div class="card" style="max-height:400px;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center"><div class="label">AI-анализ (<span id="kpi-count">0</span> KPI)</div><button class="btn-sm" onclick="analyzeKPI()">Анализировать</button></div><div id="kpi-analysis" style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0">Выберите KPI и нажмите «Анализировать»</div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: VND -->
+    <div class="page" id="page-vnd">
+      <div class="header-row"><h2>Поиск по ВНД Банка</h2><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--muted)">AI-ассистент</span><div class="toggle" id="vnd-toggle" style="background:var(--border)" onclick="toggleVndAI()"><div class="knob" style="left:2px"></div></div></div></div>
+      <div class="card">
+        <div style="display:flex;gap:12px;margin-bottom:12px">
+          <input type="text" id="vnd-search" placeholder="Поиск по названию, номеру, подразделению..." oninput="filterVND()">
+          <div style="display:flex;gap:4px" id="vnd-type-btns"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px" id="vnd-count"></div>
+        <div style="max-height:350px;overflow-y:auto" id="vnd-list"></div>
+      </div>
+      <div class="card" id="vnd-ai-panel" style="display:none;border-color:rgba(124,58,237,.3)">
+        <div class="label" style="color:var(--violet)">AI-ассистент по ВНД</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><input type="text" id="vnd-ai-q" placeholder="Задайте вопрос по ВНД..." onkeydown="if(event.key==='Enter')askVND()"><button class="btn-sm" onclick="askVND()">Спросить</button></div>
+        <div id="vnd-ai-answer"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: Chat -->
+    <div class="page" id="page-chat" style="display:none;flex-direction:column;height:calc(100vh - 96px)">
+      <div class="header-row"><div><h2>AI-чат: МСФО 9 / Базель</h2><div class="subtitle">Специализированный ассистент по финансовым стандартам</div></div><span class="chip chip-violet">Claude Sonnet 4.6</span></div>
+      <div class="card" id="chat-quick"><div class="label">Быстрые вопросы</div><div class="grid grid-3" id="quick-btns"></div></div>
+      <div id="chat-messages"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-shrink:0"><input type="text" id="chat-input" placeholder="Задайте вопрос по МСФО 9, Базель III, ФРТБ..." onkeydown="if(event.key==='Enter')sendChat()"><button class="btn-sm" onclick="sendChat()" style="padding:12px 24px;font-size:14px">↑</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════ DATA ═══════════
+const ASSETS=['FX','Rates','Equity','Commodity','Credit Spread'];
+const COR=[[1,.45,.32,.28,.61],[.45,1,.19,.15,.73],[.32,.19,1,.55,.42],[.28,.15,.55,1,.37],[.61,.73,.42,.37,1]];
+const corrClr=v=>{const a=Math.abs(v);return a<.3?'var(--green)':a<.5?'var(--amber)':a<.7?'#f97316':'var(--red)'};
+const PAIRS=[{a:'Rates',b:'Credit Spread',v:.73},{a:'FX',b:'Credit Spread',v:.61},{a:'Equity',b:'Commodity',v:.55},{a:'FX',b:'Rates',v:.45},{a:'Equity',b:'Credit Spread',v:.42}];
+const DESKS=[{n:'FX',v:2.1},{n:'Rates',v:1.8},{n:'Equity',v:1.4},{n:'Credit',v:.9},{n:'Commodity',v:1.0}];
+const STRESS_BARS=[{n:'GFC 2008',v:18.2,c:'var(--red)'},{n:'COVID 2020',v:14.5,c:'#f97316'},{n:'Тенге 2015',v:11.8,c:'var(--amber)'},{n:'Текущий',v:12.4,c:'var(--cyan)'}];
+const SCENARIOS=[
+  {id:'base',name:'Базовый',loss:-120,prob:60,cap:2800,cet1:11.2,c:'var(--green)'},
+  {id:'neg',name:'Негативный',loss:-340,prob:25,cap:2580,cet1:9.8,c:'var(--amber)'},
+  {id:'2008',name:'Кризис 2008',loss:-890,prob:5,cap:2030,cet1:7.2,c:'var(--red)'},
+  {id:'covid',name:'COVID-19',loss:-560,prob:10,cap:2360,cet1:8.6,c:'#f97316'},
+  {id:'reg',name:'Шок регулятора',loss:-210,prob:15,cap:2710,cet1:10.4,c:'var(--cyan)'},
+  {id:'geo',name:'Геополитический',loss:-670,prob:8,cap:2250,cet1:8.1,c:'var(--violet)'},
+];
+const KPIS=[
+  {id:'var',name:'VaR (99%)',plan:6.0,fact:7.2,unit:'млн $',st:'crit'},
+  {id:'lcr',name:'LCR',plan:115,fact:122,unit:'%',st:'ok'},
+  {id:'nsfr',name:'NSFR',plan:110,fact:108,unit:'%',st:'warn'},
+  {id:'cet1',name:'CET1',plan:10.5,fact:10.8,unit:'%',st:'ok'},
+  {id:'npl',name:'NPL',plan:4.0,fact:5.1,unit:'%',st:'crit'},
+  {id:'roe',name:'ROE',plan:15.0,fact:13.2,unit:'%',st:'warn'},
+  {id:'ci',name:'Cost/Income',plan:55,fact:52,unit:'%',st:'ok'},
+  {id:'exp',name:'Кред. эксп.',plan:3000,fact:3150,unit:'млн $',st:'warn'},
+];
+const DOCS=[
+  {id:'П-001',name:'Политика управления рисками Банка',t:'П',dept:'Риск-менеджмент',date:'15.01.2025',v:'4.2'},
+  {id:'П-002',name:'Политика управления кредитным риском',t:'П',dept:'Кредитный риск',date:'20.02.2025',v:'3.1'},
+  {id:'П-003',name:'Политика управления рыночным риском',t:'П',dept:'Рыночный риск',date:'10.03.2025',v:'2.8'},
+  {id:'МЕ-014',name:'Методика расчёта Value-at-Risk',t:'МЕ',dept:'Рыночный риск',date:'05.04.2025',v:'5.0'},
+  {id:'МЕ-015',name:'Методика расчёта ECL по МСФО 9',t:'МЕ',dept:'Кредитный риск',date:'12.03.2025',v:'3.3'},
+  {id:'МЕ-016',name:'Методика стресс-тестирования',t:'МЕ',dept:'Риск-менеджмент',date:'28.02.2025',v:'2.1'},
+  {id:'ИН-007',name:'Инструкция по мониторингу лимитов',t:'ИН',dept:'Мидл-офис',date:'01.05.2025',v:'1.9'},
+  {id:'ИН-008',name:'Инструкция по расчёту LCR/NSFR',t:'ИН',dept:'Казначейство',date:'15.04.2025',v:'2.4'},
+  {id:'ПЛ-003',name:'Положение об открытой валютной позиции',t:'ПЛ',dept:'Рыночный риск',date:'22.01.2025',v:'3.7'},
+  {id:'ПЛ-004',name:'Положение о системе внутреннего контроля',t:'ПЛ',dept:'Комплаенс',date:'10.05.2025',v:'2.0'},
+  {id:'П-005',name:'Политика управления операционным риском',t:'П',dept:'Операционный риск',date:'18.03.2025',v:'2.5'},
+  {id:'МЕ-020',name:'Методика оценки залогового обеспечения',t:'МЕ',dept:'Кредитный риск',date:'25.04.2025',v:'1.8'},
+];
+const LTEMPLATES=['Нарушение лимита ВаР','Ежемесячный отчёт по LCR','Результаты стресс-тестирования','Раскрытие по Базель III (Pillar 3)','Уведомление о росте NPL','Произвольный запрос'];
+const MTYPES=['Обзор рисков — квартальный','Изменение лимитов риска','Результаты стресс-тестирования','Риски нового продукта/операции','Риск-инцидент'];
+const QUICKQ=['Как рассчитывается ECL для Stage 2 по МСФО 9?','Что такое SICR и критерии перевода в Stage 2?','Чем отличается LCR от NSFR в Базель III?','Как ФРТБ меняет расчёт рыночного риска?','Формула расчёта CET1 ratio','PD × LGD × EAD — как применять в ECL?'];
+const TC={'П':'var(--cyan)','МЕ':'var(--violet)','ИН':'var(--amber)','ПЛ':'var(--green)'};
+
+const MODULES=[
+  {id:'cor',icon:'◐',name:'CoR Dashboard',sub:'Корреляции'},
+  {id:'var',icon:'◈',name:'VaR Dashboard',sub:'Бэктестинг'},
+  {id:'stress',icon:'⚡',name:'Stress Testing',sub:'Сценарии'},
+  {id:'letter',icon:'✉',name:'Письма АРРФР',sub:'Генерация'},
+  {id:'memo',icon:'📋',name:'Записки',sub:'Правление'},
+  {id:'kpi',icon:'◉',name:'KPI Анализ',sub:'Отклонения'},
+  {id:'vnd',icon:'📑',name:'ВНД Поиск',sub:'Документы'},
+  {id:'chat',icon:'💬',name:'AI Чат',sub:'МСФО 9 / Базель'},
+];
+
+// ═══════════ STATE ═══════════
+let currentPage='cor', activeScenario='base', selectedKPI=new Set(['var','npl']), letterTpl=0, memoType=0, vndAI=false;
+
+// ═══════════ NAV ═══════════
+function initNav(){
+  const nav=document.getElementById('nav');
+  nav.innerHTML=MODULES.map(m=>`<div class="nav-item${m.id===currentPage?' active':''}" data-id="${m.id}" onclick="goTo('${m.id}')"><span class="icon">${m.icon}</span><div><div class="label">${m.name}</div><div class="sub">${m.sub}</div></div></div>`).join('');
+}
+function goTo(id){
+  currentPage=id;
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none'});
+  const pg=document.getElementById('page-'+id);
+  if(pg){pg.style.display=id==='chat'?'flex':'block';pg.classList.add('active')}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.id===id));
+}
+
+// ═══════════ CoR ═══════════
+function initCoR(){
+  const hm=document.getElementById('heatmap');
+  let h='<div></div>';
+  ASSETS.forEach(a=>{h+=`<div class="heatmap-label" style="justify-content:center">${a}</div>`});
+  ASSETS.forEach((r,i)=>{
+    h+=`<div class="heatmap-label">${r}</div>`;
+    ASSETS.forEach((c,j)=>{
+      const v=COR[i][j],cl=corrClr(v);
+      h+=`<div class="heatmap-cell" style="background:${cl}22;border:1px solid ${cl}44;color:${i===j?'var(--muted)':cl}">${v.toFixed(2)}</div>`;
+    });
+  });
+  hm.innerHTML=h;
+  const pr=document.getElementById('pairs');
+  pr.innerHTML=PAIRS.map(p=>`<div class="prog-row"><span class="prog-label">${p.a} — ${p.b}</span><div class="prog-bar"><div class="prog-fill" style="width:${p.v*100}%;background:${corrClr(p.v)}"></div></div><span class="prog-val" style="color:${corrClr(p.v)}">${p.v.toFixed(2)}</span></div>`).join('');
+}
+
+// ═══════════ VaR ═══════════
+function initVaR(){
+  const breaches=Math.floor(Math.random()*4)+1;
+  document.getElementById('breach-chip').textContent=breaches+' нарушений';
+  const zone=breaches<=4?'Зелёная':breaches<=9?'Жёлтая':'Красная';
+  const zc=breaches<=4?'var(--green)':breaches<=9?'var(--amber)':'var(--red)';
+  document.getElementById('var-kpis').innerHTML=[
+    kpiHTML('VaR 99% (1д)','7.2','млн $','var(--red)'),
+    kpiHTML('VaR 95% (1д)','4.8','млн $','var(--amber)'),
+    kpiHTML('Stressed VaR','12.4','млн $','var(--red)'),
+    kpiHTML('Превышения',breaches,'шт',zc,'Зона: '+zone),
+  ].join('');
+  const dk=document.getElementById('var-desks');
+  dk.innerHTML=DESKS.map((d,i)=>{
+    const colors=['var(--cyan)','var(--violet)','var(--amber)','var(--green)','var(--red)'];
+    return `<div class="hbar"><div class="hbar-label"><span>${d.n}</span><span class="mono">${d.v} млн $</span></div><div class="hbar-track"><div class="hbar-fill" style="width:${d.v/2.5*100}%;background:${colors[i]}"></div></div></div>`;
+  }).join('');
+  const sb=document.getElementById('stress-var-bars');
+  const mx=Math.max(...STRESS_BARS.map(b=>b.v));
+  sb.innerHTML=STRESS_BARS.map(b=>`<div class="bar-col"><div class="bar-val" style="color:${b.c}">${b.v}</div><div class="bar" style="height:${b.v/mx*100}%;background:${b.c}"></div><div class="bar-label">${b.n}</div></div>`).join('');
+}
+
+// ═══════════ STRESS ═══════════
+function initStress(){
+  const btns=document.getElementById('stress-btns');
+  btns.innerHTML=SCENARIOS.map(s=>`<button class="scenario-btn${s.id===activeScenario?' active':''}" data-id="${s.id}" onclick="setScenario('${s.id}')" style="${s.id===activeScenario?'border-color:'+s.c+';background:'+s.c+'18;color:'+s.c:''}">${s.name}</button>`).join('');
+  renderScenario();
+}
+function setScenario(id){activeScenario=id;initStress()}
+function renderScenario(){
+  const s=SCENARIOS.find(x=>x.id===activeScenario);
+  document.getElementById('stress-kpis').innerHTML=[
+    kpiHTML('Потери',s.loss,'млн $','var(--red)'),
+    kpiHTML('Вероятность',s.prob,'%','var(--amber)'),
+    kpiHTML('Остаточный капитал',s.cap,'млн $',s.cap<250?'var(--red)':'var(--green)'),
+    kpiHTML('CET1 Ratio',s.cet1,'%',s.cet1<8.5?'var(--red)':'var(--green)',s.cet1<8.5?'⚠ Ниже 8.5%':'✓ Выше минимума'),
+  ].join('');
+  const sb=document.getElementById('stress-bars');
+  const mx=Math.max(...SCENARIOS.map(x=>Math.abs(x.loss)));
+  sb.innerHTML=SCENARIOS.map(x=>`<div class="hbar"><div class="hbar-label"><span>${x.name}</span><span class="mono" style="color:${x.id===activeScenario?x.c:'var(--muted)'}">${x.loss} млн $</span></div><div class="hbar-track"><div class="hbar-fill" style="width:${Math.abs(x.loss)/mx*100}%;background:${x.id===activeScenario?x.c:'var(--border)'}"></div></div></div>`).join('');
+  const tb=document.querySelector('#stress-table tbody');
+  tb.innerHTML=SCENARIOS.map(x=>`<tr style="${x.id===activeScenario?'background:rgba(0,212,255,.05)':''}"><td style="font-weight:${x.id===activeScenario?600:400}">${x.name}</td><td class="mono" style="color:${x.cet1<8.5?'var(--red)':'var(--green)'}">${x.cet1}%</td><td class="mono" style="color:var(--muted)">8.5%</td><td><span class="chip chip-${x.cet1>=8.5?'ok':'crit'}">${x.cet1>=8.5?'OK':'FAIL'}</span></td></tr>`).join('');
+}
+
+// ═══════════ LETTERS ═══════════
+function initLetters(){
+  document.getElementById('letter-tpls').innerHTML=LTEMPLATES.map((t,i)=>`<label class="${i===letterTpl?'selected':''}" onclick="letterTpl=${i};initLetters()"><input type="radio" name="ltpl" ${i===letterTpl?'checked':''}><span>${i+1}. ${t}</span></label>`).join('');
+}
+function generateLetter(){
+  const ctx=document.getElementById('letter-ctx').value;
+  const today=new Date().toLocaleDateString('ru-RU');
+  const num='ИСХ-'+(Math.floor(Math.random()*9000)+1000)+'/'+new Date().getFullYear();
+  const tpl=LTEMPLATES[letterTpl];
+  let text=`АГЕНТСТВО РЕСПУБЛИКИ КАЗАХСТАН\nПО РЕГУЛИРОВАНИЮ И РАЗВИТИЮ ФИНАНСОВОГО РЫНКА\n\nДата: ${today}\nИсх. №: ${num}\n\nТема: ${tpl}\n\n`;
+  if(letterTpl===0) text+=`Настоящим уведомляем о нарушении лимита VaR.\n\nVaR (99%, 1д) = 7.2 млн USD при лимите 6.0 млн USD (превышение 20%).\n\n${ctx?'Контекст: '+ctx+'\n\n':''}Причины:\n1. Рост волатильности USD/KZT\n2. Увеличение позиций по процентным деривативам\n3. Концентрация в корпоративных облигациях\n\nМеры:\n1. Сокращение FX-позиций на 15%\n2. Хеджирование через IRS\n\nОснование: Постановление АРРФР №24, п. 4.3.2`;
+  else if(letterTpl===1) text+=`LCR Банка: 122% (норматив ≥100%).\nHQLA: 4,850 млн KZT\nОтток: 3,975 млн KZT\n${ctx?'\n'+ctx+'\n':''}Основание: Постановление НБ РК №188.`;
+  else text+=ctx||'[Содержание будет сформировано на основе контекста]\n\nОснование: Нормативные акты АРРФР, НБ РК.';
+  text+='\n\nС уважением,\nДиректор по рискам АО «Банк»\n_________________ / И.О. Фамилия /';
+  const el=document.getElementById('letter-result');
+  el.innerHTML='<pre class="result">'+escHTML(text)+'</pre>';
+  document.getElementById('letter-copy').style.display='';
+}
+
+// ═══════════ MEMO ═══════════
+function initMemos(){
+  document.getElementById('memo-types').innerHTML=MTYPES.map((t,i)=>`<label class="${i===memoType?'selected':''}" onclick="memoType=${i};initMemos()"><input type="radio" name="mtype" ${i===memoType?'checked':''}><span>${i+1}. ${t}</span></label>`).join('');
+}
+function generateMemo(){
+  const ctx=document.getElementById('memo-ctx').value;
+  const today=new Date().toLocaleDateString('ru-RU');
+  const num='СЗ-'+(Math.floor(Math.random()*900)+100)+'/'+new Date().getFullYear();
+  let text=`СЛУЖЕБНАЯ ЗАПИСКА\n\nПравлению АО «Банк»\nот Директора по рискам\nДата: ${today} | №: ${num}\nТема: ${MTYPES[memoType]}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nEXECUTIVE SUMMARY\n\nПрофиль рисков Банка характеризуется умеренным ростом рыночного риска (+20% VaR) при стабильных показателях кредитного качества.\n\n${ctx?'Контекст: '+ctx+'\n\n':''}ТЕКУЩАЯ СИТУАЦИЯ\n\n• VaR (99%, 1д): 7.2 млн $ (лимит 6.0) — ПРЕВЫШЕНИЕ\n• LCR: 122% — НОРМА\n• CET1: 10.8% — НОРМА\n• NPL: 5.1% (план 4.0%) — ВНИМАНИЕ\n\nРЕКОМЕНДАЦИИ\n\n1. Утвердить план снижения VaR\n2. Провести анализ NPL-портфеля\n3. Рассмотреть увеличение лимита VaR до 7.5 млн $\n\nПРОЕКТ РЕШЕНИЯ ПРАВЛЕНИЯ\n\n1. Принять к сведению.\n2. Поручить разработать план снижения VaR (срок — 5 р.д.).\n\nДиректор по рискам\n_________________ / И.О. Фамилия /`;
+  document.getElementById('memo-result').innerHTML='<pre class="result">'+escHTML(text)+'</pre>';
+  document.getElementById('memo-copy').style.display='';
+}
+
+// ═══════════ KPI ═══════════
+function initKPI(){
+  const stColors={ok:'var(--green)',warn:'var(--amber)',crit:'var(--red)'};
+  const stLabels={ok:'Норма',warn:'Внимание',crit:'Критично'};
+  document.getElementById('kpi-cards').innerHTML=KPIS.map(k=>`<div class="kpi-select${selectedKPI.has(k.id)?' selected':''}" onclick="toggleKPI('${k.id}')"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="label" style="margin:0">${k.name}</div><span class="chip chip-${k.st}">${stLabels[k.st]}</span></div><div class="mono" style="font-size:22px;font-weight:700;color:${stColors[k.st]}">${k.fact} <span style="font-size:12px;color:var(--muted)">${k.unit}</span></div><div style="font-size:11px;color:var(--muted);margin-top:4px">План: ${k.plan} ${k.unit}</div></div>`).join('');
+  document.getElementById('kpi-count').textContent=selectedKPI.size;
+  renderKPIBars();
+}
+function toggleKPI(id){selectedKPI.has(id)?selectedKPI.delete(id):selectedKPI.add(id);initKPI()}
+function renderKPIBars(){
+  const mx=Math.max(...KPIS.map(k=>Math.max(k.plan,k.fact)));
+  document.getElementById('kpi-bars').innerHTML=KPIS.map(k=>`<div class="bar-col"><div style="display:flex;gap:2px;align-items:flex-end;width:100%;height:100%"><div class="bar" style="height:${k.plan/mx*100}%;background:var(--cyan);opacity:.5;flex:1"></div><div class="bar" style="height:${k.fact/mx*100}%;background:var(--violet);flex:1"></div></div><div class="bar-label">${k.name.length>8?k.name.slice(0,8)+'…':k.name}</div></div>`).join('');
+}
+function analyzeKPI(){
+  if(!selectedKPI.size)return;
+  const items=KPIS.filter(k=>selectedKPI.has(k.id));
+  let t='AI-АНАЛИЗ ОТКЛОНЕНИЙ KPI\n\n';
+  items.forEach(k=>{
+    const d=((k.fact-k.plan)/k.plan*100).toFixed(1);
+    t+='▸ '+k.name+': '+k.fact+' '+k.unit+' (план: '+k.plan+', Δ '+d+'%)\n\n';
+    if(k.id==='var')t+='  Причины: рост волатильности USD/KZT, увеличение позиций по деривативам\n  Рекомендации: сократить FX на 15%, провести КУАП\n  Регуляторно: уведомить АРРФР при 3+ нарушениях\n\n';
+    else if(k.id==='npl')t+='  Причины: реклассификация 3 корп. заёмщиков, ухудшение макро в МСБ\n  Рекомендации: workout топ-5 заёмщиков, пересмотр модели ECL\n  Регуляторно: при NPL >5% АРРФР может инициировать проверку\n\n';
+    else t+='  Отклонение '+d+'% от плана. Рекомендуется детальный анализ.\n\n';
+  });
+  t+='\nИНТЕГРАЛЬНАЯ ОЦЕНКА: Умеренно-негативная\n\nТОП-3 ДЕЙСТВИЯ:\n1. Снижение VaR (3 р.д.)\n2. Анализ NPL-портфеля (10 р.д.)\n3. Уведомление АРРФР';
+  document.getElementById('kpi-analysis').innerHTML='<pre class="result">'+escHTML(t)+'</pre>';
+}
+
+// ═══════════ VND ═══════════
+function initVND(){
+  document.getElementById('vnd-type-btns').innerHTML=['П','МЕ','ИН','ПЛ'].map(t=>`<button class="scenario-btn" style="padding:6px 12px;font-size:11px;font-weight:600;color:${TC[t]};border-color:${TC[t]}44" onclick="document.getElementById('vnd-search').value='${t}';filterVND()">${t}</button>`).join('');
+  filterVND();
+}
+function filterVND(){
+  const q=document.getElementById('vnd-search').value.toLowerCase();
+  const f=q?DOCS.filter(d=>d.id.toLowerCase().includes(q)||d.name.toLowerCase().includes(q)||d.dept.toLowerCase().includes(q)):DOCS;
+  document.getElementById('vnd-count').textContent=f.length+' документов';
+  document.getElementById('vnd-list').innerHTML=f.map(d=>`<div style="display:grid;grid-template-columns:70px 1fr 120px 80px 50px 30px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><span class="mono" style="font-size:12px;color:${TC[d.t]};font-weight:600">${d.id}</span><span style="font-size:12px">${d.name}</span><span style="font-size:11px;color:var(--muted)">${d.dept}</span><span class="mono" style="font-size:11px;color:var(--muted)">${d.date}</span><span class="mono" style="font-size:11px;color:var(--muted)">v${d.v}</span><span style="cursor:pointer">↗</span></div>`).join('');
+}
+function toggleVndAI(){
+  vndAI=!vndAI;
+  const tg=document.getElementById('vnd-toggle');
+  tg.style.background=vndAI?'var(--violet)':'var(--border)';
+  tg.querySelector('.knob').style.left=vndAI?'20px':'2px';
+  document.getElementById('vnd-ai-panel').style.display=vndAI?'block':'none';
+}
+function askVND(){
+  const q=document.getElementById('vnd-ai-q').value;
+  if(!q.trim())return;
+  document.getElementById('vnd-ai-answer').innerHTML='<pre class="result" style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px">На основе ВНД Банка по вопросу: "'+escHTML(q)+'".\n\nРелевантные документы:\n'+DOCS.slice(0,3).map(d=>'• '+d.id+' — '+d.name+' (v.'+d.v+')').join('\n')+'\n\nРекомендуется обратиться к указанным документам.</pre>';
+}
+
+// ═══════════ CHAT ═══════════
+const chatMsgs=[];
+function initChat(){
+  document.getElementById('quick-btns').innerHTML=QUICKQ.map(q=>`<button class="quick-q" onclick="sendChat('${escAttr(q)}')">${q}</button>`).join('');
+}
+function sendChat(text){
+  const q=text||document.getElementById('chat-input').value;
+  if(!q.trim())return;
+  chatMsgs.push({r:'user',t:q});
+  document.getElementById('chat-input').value='';
+  document.getElementById('chat-quick').style.display='none';
+  renderChat(true);
+  setTimeout(()=>{
+    const R={
+      'ECL':'ECL для Stage 2 = Lifetime ECL.\n\nФормула: ECL = Σ (PD_t × LGD_t × EAD_t × DF_t)\n\n• PD_t — Lifetime PD (кумулятивная)\n• LGD_t — Loss Given Default\n• EAD_t — экспозиция при дефолте\n• DF_t — фактор дисконтирования\n\nStage 1: 12-month ECL\nStage 2: Lifetime ECL\n\nСсылка: МСФО 9, параграфы 5.5.3, 5.5.5',
+      'SICR':'SICR — критерий значительного увеличения кредитного риска (МСФО 9.5.5.9).\n\nКритерии:\n• Рост PD более чем на X б.п.\n• Снижение рейтинга на 2+ ступени\n• DPD > 30 дней (опровержимая презумпция)\n• Включение в watchlist\n• Реструктуризация',
+      'LCR':'LCR = HQLA / Net Cash Outflows (30 дней) ≥ 100%\nNSFR = ASF / RSF ≥ 100%\n\nLCR — краткосрочная ликвидность (30 дней стресса)\nNSFR — структурная ликвидность (1 год)\n\nАРРФР: минимальный LCR = 80%\nБазель III: ≥ 100%',
+      'ФРТБ':'ФРТБ (FRTB) — новый стандарт рыночного риска.\n\n• ES (97.5%) заменяет VaR (99%)\n• SA: SbM + DRC + RRAO\n• IMA: ES + DRC + SES\n• Liquidity horizons: 10-120 дней\n\nСсылка: BCBS 352, 457',
+      'CET1':'CET1 Ratio = CET1 Capital / RWA × 100%\n\nCET1 = уставный капитал + эмиссионный доход + нераспред. прибыль − гудвилл − НМА\n\nМинимумы:\n• Базель III: CET1 ≥ 4.5%\n• АРРФР: ≥ 5.5% (с буферами ~8.5%)',
+      'PD':'ECL = Σ (PD × LGD × EAD × DF)\n\nPD: TTC→PIT, 12m (Stage 1) / Lifetime (Stage 2)\nLGD: Downturn LGD, учёт залога (1−RR)\nEAD: остаток + CCF × неиспользованный лимит\n\nПример: 100 млн KZT, PD=2%, LGD=40%\nECL(12m) = 0.02 × 0.40 × 100 = 0.8 млн KZT',
+    };
+    const key=Object.keys(R).find(k=>q.includes(k));
+    chatMsgs.push({r:'ai',t:key?R[key]:'По вопросу "'+q+'" рекомендую уточнить конкретный стандарт (МСФО 9, Базель III, ФРТБ) для детального ответа.'});
+    renderChat(false);
+  },1200);
+}
+function renderChat(typing){
+  const el=document.getElementById('chat-messages');
+  el.innerHTML=chatMsgs.map(m=>`<div class="msg msg-${m.r==='user'?'user':'ai'}">${escHTML(m.t)}</div>`).join('')+(typing?'<div class="typing"><span>● ● ●</span></div>':'');
+  el.scrollTop=el.scrollHeight;
+}
+
+// ═══════════ UTILS ═══════════
+function kpiHTML(title,val,unit,color,sub){
+  return `<div class="card kpi"><div class="label">${title}</div><div class="val" style="color:${color}">${val}<span class="unit">${unit}</span></div>${sub?'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+sub+'</div>':''}</div>`;
+}
+function escHTML(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function escAttr(s){return s.replace(/'/g,"\\'")}
+function copyResult(id){navigator.clipboard.writeText(document.getElementById(id).textContent)}
+
+// ═══════════ INIT ═══════════
+initNav();initCoR();initVaR();initStress();initLetters();initMemos();initKPI();initVND();initChat();goTo('cor');
+</script>
+</body>
+</html>
